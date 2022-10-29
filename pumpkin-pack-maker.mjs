@@ -132,43 +132,22 @@ for (let pumpkin of contents) {
 }
 
 // generate/write blockstate
-let carved_blockstate = `
-{
-  "variants": {
-    "facing=north": [
-      ${carved_models.map(blockstate_mapper()).join(",\n      ")}
-    ],
-    "facing=east": [
-      ${carved_models.map(blockstate_mapper(90)).join(",\n      ")}
-    ],
-    "facing=south": [
-      ${carved_models.map(blockstate_mapper(180)).join(",\n      ")}
-    ],
-    "facing=west": [
-      ${carved_models.map(blockstate_mapper(270)).join(",\n      ")}
-    ]
-  }
-}
-`.trim() + "\n";
-
-let lantern_blockstate = `
-{
-  "variants": {
-    "facing=north": [
-      ${lantern_models.map(blockstate_mapper()).join(",\n      ")}
-    ],
-    "facing=east": [
-      ${lantern_models.map(blockstate_mapper(90)).join(",\n      ")}
-    ],
-    "facing=south": [
-      ${lantern_models.map(blockstate_mapper(180)).join(",\n      ")}
-    ],
-    "facing=west": [
-      ${lantern_models.map(blockstate_mapper(270)).join(",\n      ")}
-    ]
-  }
-}
-`.trim() + "\n";
+let carved_blockstate = {
+	variants: {
+		"facing=north": carved_models.map(blockstate_mapper()),
+		"facing=east": carved_models.map(blockstate_mapper(90)),
+		"facing=south": carved_models.map(blockstate_mapper(180)),
+		"facing=west": carved_models.map(blockstate_mapper(270))
+	}
+};
+let lantern_blockstate = {
+	variants: {
+		"facing=north": lantern_models.map(blockstate_mapper()),
+		"facing=east": lantern_models.map(blockstate_mapper(90)),
+		"facing=south": lantern_models.map(blockstate_mapper(180)),
+		"facing=west": lantern_models.map(blockstate_mapper(270))
+	}
+};
 
 let carved_blockstate_file = path.resolve(
 	out_dir,
@@ -199,13 +178,12 @@ function blockstate_mapper(y = undefined) {
 	 * @param {{ model: string, weight?: number }} m
 	 */
 	return m => {
-		let json = "";
+		let json = {};
 
-		if (y) json += `, "y": ${y}`;
-		if (m.weight) json += `, "weight": ${m.weight}`;
-		json += `, "model": "${m.model}"`;
+		json.model = m.model;
+		if (y) json.y = y;
+		if (m.weight) json.weight = m.weight;
 
-		json = `{ ${json.substring(2)} }`;
 		return json;
 	};
 }
