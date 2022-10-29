@@ -21,21 +21,32 @@ const contents = await fsp.readdir(pumpkins_dir, { withFileTypes: true })
 	.then(contents => contents
 		.filter(f => f.isFile())
 		.map(f => f.name)
-		.filter(f => f.endsWith(".png"))
-	).then(contents => Promise.all(contents.map(async png_name => {
-		let png_file = path.resolve(`./pumpkins/${png_name}`);
-		let base_filename = png_name.substring(0, png_name.length - path.extname(png_name).length);
-		let weight_name = base_filename + ".weight";
+		.filter(f => f.endsWith(".png") && f.startsWith("carved_pumpkin"))
+	).then(c => Promise.all(c.map(async carved_png_name => {
+		let carved_png_file = path.resolve(`./pumpkins/${carved_png_name}`);
+		let carved_base_filename = carved_png_name.substring(0, carved_png_name.length - path.extname(carved_png_name).length);
 
+		let lantern_png_name = `jack_o_lantern${carved_png_name.substring("carved_pumpkin".length)}`;
+		let lantern_png_file = path.resolve(`./pumpkins/${lantern_png_name}`);
+		let lantern_base_filename = lantern_png_name.substring(0, lantern_png_name.length - path.extname(lantern_png_name).length);
+
+		let weight_name = carved_base_filename + ".weight";
 		let weight_file = path.resolve(`./pumpkins/${weight_name}`);
 		let weight = await fsp.readFile(weight_file, "utf8")
 			.catch(() => "NaN")
 			.then(n => Number.parseInt(n.trim()));
 
 		return {
-			fs_source_path: png_file,
-			filename: png_name,
-			base_filename,
+			carved_pumpkin: {
+				filename: carved_png_name,
+				base_filename: carved_base_filename,
+				fs_path: carved_png_file
+			},
+			jack_o_lantern: {
+				filename: lantern_png_name,
+				base_filename: lantern_base_filename,
+				fs_path: lantern_png_file
+			},
 			meta: {
 				weight: Number.isNaN(weight) ? undefined : weight
 			}
@@ -51,70 +62,124 @@ await write_string_to_file(path.resolve(out_dir, "./pack.mcmeta"), {
 	}
 });
 
-/**
- * @type {Array<{ model: string, weight?: number }>} */
-let models = [];
+/** @type {Array<{ model: string, weight?: number }>} */
+let carved_models = [];
+/** @type {Array<{ model: string, weight?: number }>} */
+let lantern_models = [];
 
 for (let pumpkin of contents) {
 	// copy the texture
-	let out_image_path = path.resolve(
+	let carved_out_image_path = path.resolve(
 		out_dir,
 		"./assets/minecraft/textures/block",
-		pumpkin.filename
+		pumpkin.carved_pumpkin.filename
 	);
-	await fsp.mkdir(path.dirname(out_image_path), { recursive: true });
-	await fsp.link(pumpkin.fs_source_path, out_image_path);
+	await fsp.mkdir(path.dirname(carved_out_image_path), { recursive: true });
+	await fsp.link(pumpkin.carved_pumpkin.fs_path, carved_out_image_path);
+
+	let lantern_out_image_path = path.resolve(
+		out_dir,
+		"./assets/minecraft/textures/block",
+		pumpkin.jack_o_lantern.filename
+	);
+	await fsp.mkdir(path.dirname(lantern_out_image_path), { recursive: true });
+	await fsp.link(pumpkin.jack_o_lantern.fs_path, lantern_out_image_path);
 
 	// generate/write the model
-	let model = {
+	let carved_model = {
 		parent: "minecraft:block/orientable",
 		textures: {
 			top: "minecraft:block/pumpkin_top",
-			front: `minecraft:block/${pumpkin.base_filename}`,
+			front: `minecraft:block/${pumpkin.carved_pumpkin.base_filename}`,
 			side: "minecraft:block/pumpkin_side"
 		}
 	};
 
-	let out_model_path = path.resolve(
+	let carved_out_model_path = path.resolve(
 		out_dir,
 		"./assets/minecraft/models/block",
-		pumpkin.base_filename + ".json"
+		pumpkin.carved_pumpkin.base_filename + ".json"
 	);
-	await fsp.mkdir(path.dirname(out_model_path), { recursive: true });
-	await write_string_to_file(out_model_path, model);
+	await fsp.mkdir(path.dirname(carved_out_model_path), { recursive: true });
+	await write_string_to_file(carved_out_model_path, carved_model);
+
+	let lantern_model = {
+		parent: "minecraft:block/orientable",
+		textures: {
+			top: "minecraft:block/pumpkin_top",
+			front: `minecraft:block/${pumpkin.jack_o_lantern.base_filename}`,
+			side: "minecraft:block/pumpkin_side"
+		}
+	};
+
+	let lantern_out_model_path = path.resolve(
+		out_dir,
+		"./assets/minecraft/models/block",
+		pumpkin.jack_o_lantern.base_filename + ".json"
+	)
+	await fsp.mkdir(path.dirname(lantern_out_model_path), { recursive: true });
+	await write_string_to_file(lantern_out_model_path, lantern_model);
 
 	// generate/store the model for blockstate
-	models.push({
-		model: `minecraft:block/${pumpkin.base_filename}`,
+	carved_models.push({
+		model: `minecraft:block/${pumpkin.carved_pumpkin.base_filename}`,
+		weight: pumpkin.meta.weight
+	});
+	lantern_models.push({
+		model: `minecraft:block/${pumpkin.jack_o_lantern.base_filename}`,
 		weight: pumpkin.meta.weight
 	});
 }
 
 // generate/write blockstate
-let blockstate = `
+let carved_blockstate = `
 {
   "variants": {
     "facing=north": [
-      ${models.map(blockstate_mapper()).join(",\n      ")}
+      ${carved_models.map(blockstate_mapper()).join(",\n      ")}
     ],
     "facing=east": [
-      ${models.map(blockstate_mapper(90)).join(",\n      ")}
+      ${carved_models.map(blockstate_mapper(90)).join(",\n      ")}
     ],
     "facing=south": [
-      ${models.map(blockstate_mapper(180)).join(",\n      ")}
+      ${carved_models.map(blockstate_mapper(180)).join(",\n      ")}
     ],
     "facing=west": [
-      ${models.map(blockstate_mapper(270)).join(",\n      ")}
+      ${carved_models.map(blockstate_mapper(270)).join(",\n      ")}
     ]
   }
 }
 `.trim() + "\n";
 
-let blockstate_file = path.resolve(
+let lantern_blockstate = `
+{
+  "variants": {
+    "facing=north": [
+      ${lantern_models.map(blockstate_mapper()).join(",\n      ")}
+    ],
+    "facing=east": [
+      ${lantern_models.map(blockstate_mapper(90)).join(",\n      ")}
+    ],
+    "facing=south": [
+      ${lantern_models.map(blockstate_mapper(180)).join(",\n      ")}
+    ],
+    "facing=west": [
+      ${lantern_models.map(blockstate_mapper(270)).join(",\n      ")}
+    ]
+  }
+}
+`.trim() + "\n";
+
+let carved_blockstate_file = path.resolve(
 	out_dir,
 	"./assets/minecraft/blockstates/carved_pumpkin.json"
 );
-await write_string_to_file(blockstate_file, blockstate);
+await write_string_to_file(carved_blockstate_file, carved_blockstate);
+let lantern_blockstate_file = path.resolve(
+	out_dir,
+	"./assets/minecraft/blockstates/jack_o_lantern.json"
+);
+await write_string_to_file(lantern_blockstate_file, lantern_blockstate);
 
 /**
  * @param {string} filename
