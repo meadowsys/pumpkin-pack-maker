@@ -138,7 +138,7 @@ function blockstate_mapper(y = undefined) {
 
 		if (y) json += `, "y": ${y}`;
 		if (m.weight) json += `, "weight": ${m.weight}`;
-		json += `, "model":" ${m.model}"`;
+		json += `, "model": "${m.model}"`;
 
 		json = `{ ${json.substring(2)} }`;
 		return json;
